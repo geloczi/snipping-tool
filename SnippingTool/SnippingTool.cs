@@ -7,7 +7,6 @@ namespace SnippingToolPoc
 	/// <summary>
 	/// Simple screenshot implementation
 	/// </summary>
-	/// <seealso cref="System.Windows.Forms.Form" />
 	public class SnippingTool : Form
 	{
 		#region Fields
@@ -22,7 +21,7 @@ namespace SnippingToolPoc
 		private readonly Brush SelectionBrush;
 		private readonly Brush SelectionClearBrush;
 		private readonly bool FreezeScreen;
-		private readonly Rectangle Desktop = new Rectangle(SystemInformation.VirtualScreen.Left, SystemInformation.VirtualScreen.Top, SystemInformation.VirtualScreen.Width, SystemInformation.VirtualScreen.Height);
+		private readonly Rectangle VirtualScreen = SystemInformation.VirtualScreen;
 		private Bitmap FreezeScreenBitmap;
 		private Graphics _graphics;
 		private Point? _mouseDownPoint;
@@ -66,8 +65,8 @@ namespace SnippingToolPoc
 			FormBorderStyle = FormBorderStyle.None;
 			Cursor = Cursors.Cross;
 			StartPosition = FormStartPosition.Manual;
-			Location = new Point(Desktop.Left, Desktop.Top);
-			Size = new Size(Desktop.Right - Desktop.Left, Desktop.Bottom - Desktop.Top);
+			Location = new Point(VirtualScreen.Left, VirtualScreen.Top);
+			Size = new Size(VirtualScreen.Right - VirtualScreen.Left, VirtualScreen.Bottom - VirtualScreen.Top);
 
 			if (FreezeScreen)
 			{
@@ -91,7 +90,6 @@ namespace SnippingToolPoc
 			LostFocus += SnippingToolWinForms_LostFocus;
 			Shown += SnippingToolWinForms_Shown;
 		}
-
 		#endregion
 
 		private void SnippingToolWinForms_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
@@ -279,7 +277,7 @@ namespace SnippingToolPoc
 					else
 					{
 						g.Clear(Color.Black);
-						g.CopyFromScreen(Desktop.Left + rect.X, Desktop.Top + rect.Y, 0, 0, rect.Size, CopyPixelOperation.SourceCopy);
+						g.CopyFromScreen(VirtualScreen.Left + rect.X, VirtualScreen.Top + rect.Y, 0, 0, rect.Size, CopyPixelOperation.SourceCopy);
 					}
 				}
 				DialogResult = DialogResult.OK;
@@ -311,11 +309,11 @@ namespace SnippingToolPoc
 
 		private Bitmap CaptureVirtualDesktopToBitmap()
 		{
-			var bmp = new Bitmap(Desktop.Right - Desktop.Left, Desktop.Bottom - Desktop.Top);
+			var bmp = new Bitmap(VirtualScreen.Right - VirtualScreen.Left, VirtualScreen.Bottom - VirtualScreen.Top);
 			using (var g = Graphics.FromImage(bmp))
 			{
 				g.Clear(Color.Black);
-				g.CopyFromScreen(Desktop.Left, Desktop.Top, 0, 0, bmp.Size, CopyPixelOperation.SourceCopy);
+				g.CopyFromScreen(VirtualScreen.Left, VirtualScreen.Top, 0, 0, bmp.Size, CopyPixelOperation.SourceCopy);
 			}
 			return bmp;
 		}
