@@ -51,7 +51,7 @@ namespace SnippingToolPoc
 			FreezeScreen = freezeScreen;
 			SelectionBrush = new SolidBrush(SelectionColor);
 			SelectionClearBrush = new SolidBrush(TransparentColor);
-			
+
 			if (IsDebug)
 			{
 				ShowInTaskbar = true;
@@ -101,8 +101,11 @@ namespace SnippingToolPoc
 				case Keys.Escape:
 					Close();
 					break;
+				case Keys.F11:
+					CaptureFullScreen(true);
+					break;
 				case Keys.F12:
-					CaptureFullScreen();
+					CaptureFullScreen(false);
 					break;
 			}
 		}
@@ -135,7 +138,7 @@ namespace SnippingToolPoc
 			if (e.Button == MouseButtons.Left && (!_mouseUpPoint.HasValue || _mouseUpPoint.Value != e.Location))
 			{
 				_mouseUpPoint = e.Location;
-				Render();
+				Render(_graphics);
 			}
 		}
 
@@ -205,14 +208,14 @@ namespace SnippingToolPoc
 			}
 		}
 
-		private void Render()
+		private void Render(Graphics g)
 		{
 			PartialErase();
 			if (_mouseDownPoint.HasValue && _mouseUpPoint.HasValue)
 			{
 				_lastRectangle = PointsToRectangle(_mouseDownPoint.Value, _mouseUpPoint.Value);
 				_lastBorders = RectangleToBorders(_lastRectangle.Value, SelectionThickness);
-				_graphics.FillRectangles(SelectionBrush, _lastBorders);
+				g.FillRectangles(SelectionBrush, _lastBorders);
 			}
 		}
 
@@ -284,16 +287,22 @@ namespace SnippingToolPoc
 			}
 		}
 
-		private void CaptureFullScreen()
+		private void CaptureFullScreen(bool keepSelectionRectangle)
 		{
 			if (FreezeScreen)
 			{
+				if (keepSelectionRectangle)
+				{
+					using (var g = Graphics.FromImage(FreezeScreenBitmap))
+						Render(g);
+				}
 				Result = FreezeScreenBitmap;
 				FreezeScreenBitmap = null;
 			}
 			else
 			{
-				_graphics.Clear(TransparentColor);
+				if (!keepSelectionRectangle)
+					_graphics.Clear(TransparentColor);
 				Result = CaptureVirtualDesktopToBitmap();
 			}
 			DialogResult = DialogResult.OK;

@@ -19,7 +19,7 @@ namespace SnippingToolPoc
 
 			try
 			{
-				using (var snippingTool = new SnippingTool(true))
+				using (var snippingTool = new SnippingTool())
 				{
 					if (snippingTool.ShowDialog() == DialogResult.OK)
 					{
