@@ -19,37 +19,32 @@ namespace SnippingToolPoc
 
 			try
 			{
-				using (var snippingTool = new SnippingTool())
+				using (var snippingTool = new SnippingTool(true))
 				{
 					if (snippingTool.ShowDialog() == DialogResult.OK)
 					{
+						// Always save to clipboard
+						Clipboard.SetImage(snippingTool.Result);
+
+						// Show save file dialog
 						var sfd = new SaveFileDialog();
-						sfd.Filter = "Save to PNG|*.png|Save to JPB|*.jpg|Save to BMP|*.bmp|Copy to clipboard|";
+						sfd.Filter = "Save to PNG|*.png|Save to JPB|*.jpg|Save to BMP|*.bmp";
 						sfd.DefaultExt = ".png";
 						sfd.Title = "Save screenshot";
 						sfd.FileName = DateTime.Now.ToString("yyyyMMdd-hhmmss");
 						if (sfd.ShowDialog() == DialogResult.OK)
 						{
-							if (sfd.FilterIndex == 4)
+							switch (Path.GetExtension(sfd.FileName).ToLowerInvariant())
 							{
-								// Save to clipboard
-								Clipboard.SetImage(snippingTool.Result);
-							}
-							else
-							{
-								// Save to file
-								switch (Path.GetExtension(sfd.FileName).ToLowerInvariant())
-								{
-									case ".png":
-										snippingTool.Result.Save(sfd.FileName, ImageFormat.Png);
-										break;
-									case ".jpg":
-										snippingTool.Result.Save(sfd.FileName, ImageFormat.Jpeg);
-										break;
-									default:
-										snippingTool.Result.Save(sfd.FileName, ImageFormat.Bmp);
-										break;
-								}
+								case ".png":
+									snippingTool.Result.Save(sfd.FileName, ImageFormat.Png);
+									break;
+								case ".jpg":
+									snippingTool.Result.Save(sfd.FileName, ImageFormat.Jpeg);
+									break;
+								default:
+									snippingTool.Result.Save(sfd.FileName, ImageFormat.Bmp);
+									break;
 							}
 						}
 					}

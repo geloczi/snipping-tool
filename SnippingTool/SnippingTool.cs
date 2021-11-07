@@ -4,67 +4,80 @@ using System.Windows.Forms;
 
 namespace SnippingToolPoc
 {
+	/// <summary>
+	/// Simple screenshot implementation
+	/// </summary>
+	/// <seealso cref="System.Windows.Forms.Form" />
 	public class SnippingTool : Form
 	{
+		#region Fields
+		private const int SelectionThickness = 2;
 #if DEBUG
 		private readonly bool IsDebug = true;
 #else
 		private readonly bool IsDebug = false;
 #endif
-		private readonly Bitmap _screenshotOnStartup;
+		private readonly Color SelectionColor = Color.Red;
 		private readonly Color TransparentColor = Color.FromArgb(0, 0, 255);
-		private readonly SnippingToolOptions _options;
-		private readonly Brush _selectionBrush;
-		private readonly Brush _selectionClearBrush;
+		private readonly Brush SelectionBrush;
+		private readonly Brush SelectionClearBrush;
+		private readonly bool FreezeScreen;
+		private readonly Rectangle Desktop = new Rectangle(SystemInformation.VirtualScreen.Left, SystemInformation.VirtualScreen.Top, SystemInformation.VirtualScreen.Width, SystemInformation.VirtualScreen.Height);
+		private Bitmap FreezeScreenBitmap;
 		private Graphics _graphics;
 		private Point? _mouseDownPoint;
 		private Point? _mouseUpPoint;
 		private Rectangle? _lastRectangle;
 		private Rectangle[] _lastBorders = new Rectangle[0];
+		#endregion
 
+		#region Properties		
+		/// <summary>
+		/// Gets the screenshot result.
+		/// </summary>
+		/// <value>
+		/// The result.
+		/// </value>
 		public Bitmap Result { get; private set; }
+		#endregion
 
-		public SnippingTool() : this(new SnippingToolOptions())
+		#region Constructor		
+		/// <summary>
+		/// Initializes a new instance of the <see cref="SnippingTool"/> class.
+		/// </summary>
+		/// <param name="freezeScreen">True to freeze the screen, False to show the snipping tool on the live screen</param>
+		public SnippingTool(bool freezeScreen = false) : base()
 		{
-		}
-		public SnippingTool(SnippingToolOptions options) : base()
-		{
-			_options = options;
-			_selectionBrush = new SolidBrush(_options.SelectionColor);
-			_selectionClearBrush = new SolidBrush(TransparentColor);
-
-			// Appearance
+			FreezeScreen = freezeScreen;
+			SelectionBrush = new SolidBrush(SelectionColor);
+			SelectionClearBrush = new SolidBrush(TransparentColor);
+			
 			if (IsDebug)
 			{
 				ShowInTaskbar = true;
 			}
 			else
 			{
+				ShowInTaskbar = false;
 				TopLevel = true;
 				TopMost = true;
-				ShowInTaskbar = false;
 			}
 			KeyPreview = true;
 			FormBorderStyle = FormBorderStyle.None;
 			Cursor = Cursors.Cross;
 			StartPosition = FormStartPosition.Manual;
-			Location = new Point(VirtualDesktop.Left, VirtualDesktop.Top);
-			Size = new Size(VirtualDesktop.Right - VirtualDesktop.Left, VirtualDesktop.Bottom - VirtualDesktop.Top);
+			Location = new Point(Desktop.Left, Desktop.Top);
+			Size = new Size(Desktop.Right - Desktop.Left, Desktop.Bottom - Desktop.Top);
 
-			if (_options.FreezeScreen)
+			if (FreezeScreen)
 			{
 				// A full screenshot is captured now and will be used as source
 				BackColor = Color.Black;
-
-				// Capture on startup, freeze screen mode
-				_screenshotOnStartup = CaptureVirtualDesktopToBitmap();
+				FreezeScreenBitmap = CaptureVirtualDesktopToBitmap();
 			}
 			else
 			{
-				// Transparent background mode, screenshot will be captured at the end of selection
-				if (_options.SelectionColor == TransparentColor)
-					throw new ArgumentException("Selection color must be different than the transparency key.", nameof(_options.SelectionColor));
-
+				// The form will be transparent
 				BackColor = TransparentColor;
 				TransparencyKey = TransparentColor;
 			}
@@ -78,6 +91,8 @@ namespace SnippingToolPoc
 			LostFocus += SnippingToolWinForms_LostFocus;
 			Shown += SnippingToolWinForms_Shown;
 		}
+
+		#endregion
 
 		private void SnippingToolWinForms_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
 		{
@@ -101,24 +116,23 @@ namespace SnippingToolPoc
 
 		protected override void OnPaint(PaintEventArgs e)
 		{
-			// Disabled, everything is manually rendered
+			// Disabled
 		}
 
 		protected override void OnPaintBackground(PaintEventArgs e)
 		{
-			// Disabled, everything is manually rendered
+			// Disabled
 		}
 
 		private void SnippingToolWinForms_LostFocus(object sender, EventArgs e)
 		{
 			if (!IsDebug)
 				Close();
-
 		}
 
 		private void SnippingToolWinForms_MouseMove(object sender, MouseEventArgs e)
 		{
-			if (e.Button == MouseButtons.Left)
+			if (e.Button == MouseButtons.Left && (!_mouseUpPoint.HasValue || _mouseUpPoint.Value != e.Location))
 			{
 				_mouseUpPoint = e.Location;
 				Render();
@@ -139,13 +153,9 @@ namespace SnippingToolPoc
 		private void SnippingToolWinForms_MouseDown(object sender, MouseEventArgs e)
 		{
 			if (e.Button == MouseButtons.Left)
-			{
 				_mouseDownPoint = e.Location;
-			}
 			else
-			{
 				ClearSelection();
-			}
 		}
 
 		private void ClearSelection()
@@ -163,21 +173,17 @@ namespace SnippingToolPoc
 
 		protected override void Dispose(bool disposing)
 		{
-			_screenshotOnStartup?.Dispose();
+			FreezeScreenBitmap?.Dispose();
 			Result?.Dispose();
 			base.Dispose(disposing);
 		}
 
 		private void FullErase()
 		{
-			if (_options.FreezeScreen)
-			{
-				_graphics.DrawImageUnscaled(_screenshotOnStartup, 0, 0);
-			}
+			if (FreezeScreen)
+				_graphics.DrawImageUnscaled(FreezeScreenBitmap, 0, 0);
 			else
-			{
 				_graphics.Clear(BackColor);
-			}
 		}
 
 		private void PartialErase()
@@ -185,17 +191,17 @@ namespace SnippingToolPoc
 			if (_lastBorders.Length == 0 || !_lastRectangle.HasValue)
 				return;
 
-			if (_options.FreezeScreen)
+			if (FreezeScreen)
 			{
-				_graphics.DrawImage(_screenshotOnStartup, _lastRectangle.Value, _lastRectangle.Value, GraphicsUnit.Pixel);
+				_graphics.DrawImage(FreezeScreenBitmap, _lastRectangle.Value, _lastRectangle.Value, GraphicsUnit.Pixel);
 
 				// This is faster, but produces artifacts on multi-monitor setups
 				//foreach (var b in _lastBorders)
-				//	_graphics.DrawImage(_screenshotOnStartup, b, b, GraphicsUnit.Pixel);
+				//	_graphics.DrawImage(FreezeScreenBitmap, b, b, GraphicsUnit.Pixel);
 			}
 			else
 			{
-				_graphics.FillRectangles(_selectionClearBrush, _lastBorders);
+				_graphics.FillRectangles(SelectionClearBrush, _lastBorders);
 			}
 		}
 
@@ -205,21 +211,20 @@ namespace SnippingToolPoc
 			if (_mouseDownPoint.HasValue && _mouseUpPoint.HasValue)
 			{
 				_lastRectangle = PointsToRectangle(_mouseDownPoint.Value, _mouseUpPoint.Value);
-				_lastBorders = RectangleToBorders(_lastRectangle.Value, _options.SelectionThickness);
-				_graphics.FillRectangles(_selectionBrush, _lastBorders);
+				_lastBorders = RectangleToBorders(_lastRectangle.Value, SelectionThickness);
+				_graphics.FillRectangles(SelectionBrush, _lastBorders);
 			}
 		}
 
 		private Rectangle PointsToRectangle(Point p1, Point p2)
 		{
-			var rect = new Rectangle
+			return new Rectangle
 			(
 				p1.X <= p2.X ? p1.X : p2.X,
 				p1.Y <= p2.Y ? p1.Y : p2.Y,
 				Math.Abs(p1.X - p2.X),
 				Math.Abs(p1.Y - p2.Y)
 			);
-			return rect;
 		}
 
 		private Rectangle[] RectangleToBorders(Rectangle rect, int thickness)
@@ -256,17 +261,6 @@ namespace SnippingToolPoc
 			return b;
 		}
 
-		private Bitmap CaptureVirtualDesktopToBitmap()
-		{
-			var bmp = new Bitmap(VirtualDesktop.Right - VirtualDesktop.Left, VirtualDesktop.Bottom - VirtualDesktop.Top);
-			using (var g = Graphics.FromImage(bmp))
-			{
-				g.Clear(Color.Black);
-				g.CopyFromScreen(VirtualDesktop.Left, VirtualDesktop.Top, 0, 0, bmp.Size, CopyPixelOperation.SourceCopy);
-			}
-			return bmp;
-		}
-
 		private void CaptureSelection()
 		{
 			if (_lastRectangle.HasValue)
@@ -275,14 +269,14 @@ namespace SnippingToolPoc
 				Result = new Bitmap(rect.Width, rect.Height);
 				using (var g = Graphics.FromImage(Result))
 				{
-					if (_options.FreezeScreen)
+					if (FreezeScreen)
 					{
-						g.DrawImage(_screenshotOnStartup, 0, 0, rect, GraphicsUnit.Pixel);
+						g.DrawImage(FreezeScreenBitmap, 0, 0, rect, GraphicsUnit.Pixel);
 					}
 					else
 					{
 						g.Clear(Color.Black);
-						g.CopyFromScreen(VirtualDesktop.Left + rect.X, VirtualDesktop.Top + rect.Y, 0, 0, rect.Size, CopyPixelOperation.SourceCopy);
+						g.CopyFromScreen(Desktop.Left + rect.X, Desktop.Top + rect.Y, 0, 0, rect.Size, CopyPixelOperation.SourceCopy);
 					}
 				}
 				DialogResult = DialogResult.OK;
@@ -292,9 +286,10 @@ namespace SnippingToolPoc
 
 		private void CaptureFullScreen()
 		{
-			if (_options.FreezeScreen)
+			if (FreezeScreen)
 			{
-				Result = _screenshotOnStartup;
+				Result = FreezeScreenBitmap;
+				FreezeScreenBitmap = null;
 			}
 			else
 			{
@@ -305,5 +300,15 @@ namespace SnippingToolPoc
 			Close();
 		}
 
+		private Bitmap CaptureVirtualDesktopToBitmap()
+		{
+			var bmp = new Bitmap(Desktop.Right - Desktop.Left, Desktop.Bottom - Desktop.Top);
+			using (var g = Graphics.FromImage(bmp))
+			{
+				g.Clear(Color.Black);
+				g.CopyFromScreen(Desktop.Left, Desktop.Top, 0, 0, bmp.Size, CopyPixelOperation.SourceCopy);
+			}
+			return bmp;
+		}
 	}
 }
