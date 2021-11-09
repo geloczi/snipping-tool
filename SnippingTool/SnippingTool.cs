@@ -2,7 +2,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace SnippingToolPoc
+namespace SnippingTool
 {
 	/// <summary>
 	/// Simple screenshot implementation
@@ -11,17 +11,13 @@ namespace SnippingToolPoc
 	{
 		#region Fields
 		private const int SelectionThickness = 2;
-#if DEBUG
-		private readonly bool IsDebug = true;
-#else
-		private readonly bool IsDebug = false;
-#endif
 		private readonly Color SelectionColor = Color.Red;
 		private readonly Color TransparentColor = Color.FromArgb(0, 0, 255);
 		private readonly Brush SelectionBrush;
 		private readonly Brush SelectionClearBrush;
 		private readonly bool FreezeScreen;
 		private readonly Rectangle VirtualScreen = SystemInformation.VirtualScreen;
+		private readonly Cursor OriginalCursor;
 		private Bitmap FreezeScreenBitmap;
 		private Graphics _graphics;
 		private Point? _mouseDownPoint;
@@ -30,14 +26,24 @@ namespace SnippingToolPoc
 		private Rectangle[] _lastBorders = new Rectangle[0];
 		#endregion
 
-		#region Properties		
+		#region Properties
 		/// <summary>
-		/// Gets the screenshot result.
+		/// Gets the screenshot result. Will be disposed on Dispose() unless you set it to null.
 		/// </summary>
 		/// <value>
 		/// The result.
 		/// </value>
-		public Bitmap Result { get; private set; }
+		public Bitmap Result { get; set; }
+
+		/// <summary>
+		/// True to enable F11 and F12 hotkeys to capture the full screen. False to disable.
+		/// </summary>
+		public bool FullscreenCaptureEnabled { get; set; }
+
+		/// <summary>
+		/// True to enable Debug mode to help debugging this component. The form can be sent to the background without closing it.
+		/// </summary>
+		public bool IsDebug { get; set; }
 		#endregion
 
 		#region Constructor		
@@ -48,6 +54,7 @@ namespace SnippingToolPoc
 		public SnippingTool(bool freezeScreen = false) : base()
 		{
 			FreezeScreen = freezeScreen;
+			OriginalCursor = Cursor;
 			SelectionBrush = new SolidBrush(SelectionColor);
 			SelectionClearBrush = new SolidBrush(TransparentColor);
 
@@ -97,13 +104,17 @@ namespace SnippingToolPoc
 			switch (e.KeyCode)
 			{
 				case Keys.Escape:
-					Close();
+					CloseForm(false);
 					break;
+
 				case Keys.F11:
-					CaptureFullScreen(true);
+					if (FullscreenCaptureEnabled)
+						CaptureFullScreen(true);
 					break;
+
 				case Keys.F12:
-					CaptureFullScreen(false);
+					if (FullscreenCaptureEnabled)
+						CaptureFullScreen(false);
 					break;
 			}
 		}
@@ -127,8 +138,8 @@ namespace SnippingToolPoc
 
 		private void SnippingToolWinForms_LostFocus(object sender, EventArgs e)
 		{
-			if (!IsDebug)
-				Close();
+			if (!IsDebug && DialogResult == DialogResult.None)
+				CloseForm(false);
 		}
 
 		private void SnippingToolWinForms_MouseMove(object sender, MouseEventArgs e)
@@ -169,7 +180,7 @@ namespace SnippingToolPoc
 
 		private void SnippingToolWinForms_FormClosing(object sender, FormClosingEventArgs e)
 		{
-			_graphics.Dispose();
+			_graphics?.Dispose();
 		}
 
 		protected override void Dispose(bool disposing)
@@ -280,9 +291,15 @@ namespace SnippingToolPoc
 						g.CopyFromScreen(VirtualScreen.Left + rect.X, VirtualScreen.Top + rect.Y, 0, 0, rect.Size, CopyPixelOperation.SourceCopy);
 					}
 				}
-				DialogResult = DialogResult.OK;
-				Close();
+				CloseForm(true);
 			}
+		}
+
+		private void CloseForm(bool captured)
+		{
+			Cursor = OriginalCursor;
+			DialogResult = captured ? DialogResult.OK : DialogResult.Cancel;
+			Close();
 		}
 
 		private void CaptureFullScreen(bool keepSelectionRectangle)
@@ -303,8 +320,7 @@ namespace SnippingToolPoc
 					_graphics.Clear(TransparentColor);
 				Result = CaptureVirtualDesktopToBitmap();
 			}
-			DialogResult = DialogResult.OK;
-			Close();
+			CloseForm(true);
 		}
 
 		private Bitmap CaptureVirtualDesktopToBitmap()
