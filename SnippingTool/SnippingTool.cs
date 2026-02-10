@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
+using System.ComponentModel;
 
 namespace SnippingTool
 {
@@ -33,16 +34,19 @@ namespace SnippingTool
         /// <value>
         /// The result.
         /// </value>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Bitmap Result { get; set; }
 
         /// <summary>
         /// True to enable F11 and F12 hotkeys to capture the full screen. False to disable.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool FullscreenCaptureEnabled { get; set; }
 
         /// <summary>
         /// True to enable Debug mode to help debugging this component. The form can be sent to the background without closing it.
         /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool IsDebug { get; set; }
         #endregion
 
